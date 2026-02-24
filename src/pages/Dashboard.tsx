@@ -1,9 +1,9 @@
 import { useEffect } from 'react';
-import { Droplet, History, Clock, X, CloudSun } from 'lucide-react';
+import { Settings, Droplet, Flame } from 'lucide-react';
 import { useHydrationStore } from '../lib/hydration-store';
 
 export default function Dashboard() {
-  const { currentIntake, profile, user, weatherTemp, addWater, logs, removeLog, fetchUserData } = useHydrationStore();
+  const { currentIntake, profile, addWater, fetchUserData } = useHydrationStore();
 
   useEffect(() => {
     fetchUserData();
@@ -12,10 +12,13 @@ export default function Dashboard() {
   const goal = profile?.daily_goal || 2500;
   const percentage = Math.min(100, Math.round((currentIntake / goal) * 100));
   const remaining = Math.max(0, goal - currentIntake);
+  
+  // Format for "0.0L / 2.5L"
+  const currentLiters = (currentIntake / 1000).toFixed(1);
+  const goalLiters = (goal / 1000).toFixed(1);
 
-  const rawName = profile?.full_name || user?.user_metadata?.full_name || '';
-  const firstName = rawName.split(' ')[0];
-  const dashboardTitle = firstName ? `${firstName}'s Dashboard` : 'My Dashboard';
+  // Default streak fallback
+  const streakDays = profile?.streak || 0;
 
   const handleCustomAdd = () => {
     const amount = window.prompt("Enter custom amount in ml (e.g., 300):");
@@ -25,86 +28,101 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="p-4 space-y-6 pb-28 bg-[#0B1120] min-h-screen text-slate-50">
+    <div className="p-4 space-y-6 pb-28 bg-[#0B1120] min-h-screen text-slate-50 font-sans">
+      {/* Header matching your screenshot */}
       <header className="flex justify-between items-center pt-2">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-cyan-500/20">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center">
             <Droplet className="text-white fill-white w-6 h-6" />
           </div>
           <div>
-            <h1 className="font-black text-xl tracking-tight">HydrAI</h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{dashboardTitle}</p>
+            <h1 className="font-bold text-xl leading-tight">HydrAI</h1>
+            <p className="text-xs text-slate-400">Dashboard</p>
           </div>
         </div>
-        {weatherTemp && (
-          <div className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 text-slate-300">
-            <CloudSun className="w-4 h-4 text-orange-400" />
-            <span className="text-xs font-bold">{weatherTemp}°C</span>
-          </div>
-        )}
+        <button className="p-2 bg-slate-800/50 rounded-xl border border-slate-700">
+          <Settings className="w-5 h-5 text-slate-300" />
+        </button>
       </header>
 
-      <div className="bg-[#161F32] border border-slate-800 rounded-[32px] p-8 shadow-2xl">
-        <div className="flex justify-between items-center mb-10">
+      {/* Main Hydration Card */}
+      <div className="bg-[#161F32] border border-slate-800/80 rounded-3xl p-6 shadow-xl">
+        {/* Top Info */}
+        <div className="flex justify-between items-start mb-8">
           <div>
-            <p className="text-cyan-400 font-black text-3xl">{currentIntake}ml</p>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Total Drank Today</p>
+            <h2 className="text-white font-bold text-xl">Today's Hydration</h2>
+            <p className="text-slate-400 text-sm">{currentLiters}L / {goalLiters}L</p>
           </div>
-          <div className="text-right">
-            <p className="text-slate-100 font-black text-3xl">{percentage}%</p>
-            <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Daily Progress</p>
+          <div className="flex items-center gap-2 bg-yellow-900/30 border border-yellow-700/50 px-3 py-1.5 rounded-full">
+            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+            <span className="text-yellow-500 text-xs font-bold">Medium Risk</span>
           </div>
         </div>
         
-        <div className="h-4 w-full bg-slate-800 rounded-full overflow-hidden mb-6">
-          <div className="h-full bg-cyan-500 transition-all duration-1000" style={{ width: `${percentage}%` }}></div>
+        {/* The Exact Bottle Shape */}
+        <div className="flex justify-center mb-8">
+          <div className="relative flex flex-col items-center w-32 h-64">
+            {/* Bottle Cap */}
+            <div className="w-12 h-4 bg-slate-600 rounded-t-md z-10 border border-slate-500"></div>
+            {/* Bottle Neck */}
+            <div className="w-16 h-6 bg-slate-800/50 border-x-2 border-slate-600/50"></div>
+            {/* Bottle Body */}
+            <div className="relative w-full flex-1 border-2 border-slate-600/50 rounded-[2rem] bg-gradient-to-b from-slate-800/30 to-slate-800/10 overflow-hidden flex flex-col justify-end">
+               {/* Liquid Fill */}
+               <div 
+                 className="w-full bg-cyan-500 transition-all duration-1000 border-t-2 border-cyan-300/50" 
+                 style={{ height: `${Math.max(percentage, 5)}%` }}
+               ></div>
+            </div>
+            {/* Percentage Text centered over the bottle */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-10">
+              <span className="text-white font-bold text-3xl">{percentage}%</span>
+            </div>
+          </div>
         </div>
         
-        <p className="text-center text-slate-400 text-sm font-medium">{remaining}ml remaining to hit your goal</p>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <button onClick={() => addWater(250)} className="bg-slate-800/50 flex flex-col items-center justify-center p-4 rounded-2xl font-bold active:scale-95 transition-all text-slate-200">
-          <Droplet className="w-5 h-5 mb-1 text-cyan-500" />
-          250ml
-        </button>
-        <button onClick={() => addWater(500)} className="bg-slate-800/50 flex flex-col items-center justify-center p-4 rounded-2xl font-bold active:scale-95 transition-all text-slate-200">
-          <Droplet className="w-5 h-5 mb-1 text-cyan-500" />
-          500ml
-        </button>
-        <button onClick={handleCustomAdd} className="bg-cyan-900/50 text-cyan-400 border border-cyan-800 p-4 rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center">
-          + Custom
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] ml-1 flex items-center gap-2">
-           <History className="w-4 h-4" /> Activity Log
-        </h3>
-        <div className="space-y-3">
-          {logs.map((log) => (
-            <div key={log.id} className="bg-[#161F32] border border-slate-800 p-4 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-cyan-500/10 rounded-xl flex items-center justify-center border border-cyan-500/20">
-                  <Clock className="w-4 h-4 text-cyan-500" />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-slate-100">{log.amount}ml</p>
-                  <p className="text-[10px] text-slate-500 font-bold">{new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-              </div>
-              <button onClick={() => removeLog(log.id)} className="p-2 text-slate-700 hover:text-rose-500 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-          {logs.length === 0 && (
-            <div className="p-8 text-center bg-slate-800/10 border-2 border-dashed border-slate-800 rounded-[32px]">
-              <p className="text-slate-600 text-sm">No hydration logged today.</p>
-            </div>
-          )}
+        {/* Stats below bottle */}
+        <div className="flex justify-center items-center divide-x divide-slate-700/80">
+          <div className="px-6 text-center">
+            <p className="text-cyan-400 font-black text-2xl">{remaining}ml</p>
+            <p className="text-slate-400 text-xs mt-1">Remaining</p>
+          </div>
+          <div className="px-6 text-center flex flex-col items-center">
+            <p className="text-cyan-400 font-black text-2xl flex items-center gap-1">
+              <Flame className="w-5 h-5 text-cyan-400" /> {streakDays}
+            </p>
+            <p className="text-slate-400 text-xs mt-1">Day Streak</p>
+          </div>
         </div>
       </div>
+
+      {/* Quick Add Section */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-slate-100 ml-1">Quick Add</h3>
+        <div className="grid grid-cols-3 gap-3">
+          <button onClick={() => addWater(250)} className="bg-[#161F32] border border-slate-800/80 flex flex-col items-center justify-center py-5 rounded-2xl active:scale-95 transition-all hover:bg-slate-800/50">
+            <Droplet className="w-6 h-6 mb-2 text-cyan-500" />
+            <span className="text-cyan-500 font-medium text-sm">250ml</span>
+          </button>
+          <button onClick={() => addWater(500)} className="bg-[#161F32] border border-slate-800/80 flex flex-col items-center justify-center py-5 rounded-2xl active:scale-95 transition-all hover:bg-slate-800/50">
+            <Droplet className="w-6 h-6 mb-2 text-cyan-500" />
+            <span className="text-cyan-500 font-medium text-sm">500ml</span>
+          </button>
+          <button onClick={handleCustomAdd} className="bg-cyan-900/20 border border-cyan-800 flex flex-col items-center justify-center py-5 rounded-2xl active:scale-95 transition-all">
+            <span className="text-cyan-400 text-xl mb-1">+</span>
+            <span className="text-cyan-400 font-medium text-sm">Custom</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Today's Log Placeholder */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-slate-100 ml-1">Today's Log</h3>
+        <div className="bg-[#161F32] border border-slate-800/80 rounded-3xl p-6 text-center shadow-xl">
+           <p className="text-slate-500 text-sm">Log your water to see history here.</p>
+        </div>
+      </div>
+
     </div>
   );
 }
