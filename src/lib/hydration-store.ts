@@ -9,46 +9,107 @@ export interface HydrationLog {
 
 interface HydrationState {
   user: any | null;
+  profile: any | null;
   logs: HydrationLog[];
   currentIntake: number;
+  streak: number;
   loading: boolean;
+  weatherTemp: number | null;
   fetchUserData: () => Promise<void>;
   addWater: (amount: number) => Promise<void>;
   removeLog: (id: string) => Promise<void>;
+  updateProfile: (updates: any) => Promise<void>;
+  signOut: () => Promise<void>;
+  calculateGoal: (weight?: number, activity?: string, temp?: number | null) => number;
 }
 
-export const useHydrationStore = create<HydrationState>((set, get) => ({
+// FIX: Notice the () after <HydrationState>
+export const useHydrationStore = create<HydrationState>()((set, get) => ({
   user: null,
+  profile: null,
   logs: [],
   currentIntake: 0,
+  streak: 0,
   loading: true,
+  weatherTemp: null,
 
-  fetchUserData: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return set({ loading: false });
-
-    const today = new Date().toISOString().split('T')[0];
-    const { data: logs } = await supabase.from('water_logs')
-      .select('*').eq('user_id', user.id).gte('created_at', today);
-    
-    set({ 
-      user, 
-      logs: logs || [], 
-      currentIntake: logs?.reduce((acc, curr) => acc + curr.amount, 0) || 0,
-      loading: false 
-    });
+  calculateGoal: (weight = 70, activity = 'Moderate', temp = null) => {
+    let base = weight * 35;
+    if (activity === 'High') base += 500;
+    if (activity === 'Low') base -= 200;
+    if (temp && temp >= 35) base += 500;
+    return Math.round(base);
   },
 
-  removeLog: async (id: string) => {
-    await supabase.from('water_logs').delete().eq('id', id);
-    const self = get(); // Fixed the 'get()' red line
-    await self.fetchUserData();
+  fetchUserData: async () => {
+    try {
+      const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=14.9131&longitude=78.0108&current_weather=true');
+      const weatherData = await weatherRes.json();
+      const temp = weatherData.current_weather.temperature;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        set({ loading: false });
+        return;
+      }
+
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+      const goal = profile?.daily_goal || get().calculateGoal(profile?.weight, profile?.activity_level, temp);
+
+      const today = new Date().toISOString().split('T')[0];
+      const { data: todaysLogs } = await supabase
+        .from('water_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', today)
+        .order('created_at', { ascending: false });
+
+      const total = todaysLogs?.reduce((sum, log) => sum + log.amount, 0) || 0;
+
+      set({ 
+        user, 
+        profile: { ...profile, daily_goal: goal }, 
+        weatherTemp: temp,
+        logs: todaysLogs || [],
+        currentIntake: total,
+        loading: false 
+      });
+    } catch (error) {
+      console.error("Sync error:", error);
+      set({ loading: false });
+    }
   },
 
   addWater: async (amount: number) => {
-    const self = get(); // Fixed the 'user' red line
-    if (!self.user) return;
-    await supabase.from('water_logs').insert([{ user_id: self.user.id, amount }]);
-    await self.fetchUserData();
+    const { user, currentIntake } = get();
+    if (!user) return;
+    
+    if (currentIntake + amount > 5000) {
+      alert("Safety Limit: 5L per day.");
+      return;
+    }
+
+    const { error } = await supabase.from('water_logs').insert([{ user_id: user.id, amount }]);
+    if (!error) await get().fetchUserData();
+  },
+
+  removeLog: async (id: string) => {
+    const { error } = await supabase.from('water_logs').delete().eq('id', id);
+    if (!error) await get().fetchUserData();
+  },
+
+  updateProfile: async (updates: any) => {
+    const { user, weatherTemp } = get();
+    if (!user) return;
+    const newGoal = get().calculateGoal(updates.weight, updates.activity_level, weatherTemp);
+    await supabase.from('profiles').update({ ...updates, daily_goal: newGoal }).eq('id', user.id);
+    await get().fetchUserData();
+  },
+
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, profile: null, logs: [], currentIntake: 0 });
+    localStorage.removeItem('hydration-storage');
+    window.location.href = '/onboarding';
   }
 }));
