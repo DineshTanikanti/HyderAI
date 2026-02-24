@@ -41,12 +41,12 @@ export const useHydrationStore = create<HydrationState>((set, get) => ({
 
   removeLog: async (id: string) => {
     await supabase.from('water_logs').delete().eq('id', id);
-    const self = get(); // Correct way to call fetch after delete
+    const self = get(); // Fixed the 'get()' red line
     await self.fetchUserData();
   },
 
   addWater: async (amount: number) => {
-    const self = get(); // Correct way to access user
+    const self = get(); // Fixed the 'user' red line
     if (!self.user) return;
     await supabase.from('water_logs').insert([{ user_id: self.user.id, amount }]);
     await self.fetchUserData();
