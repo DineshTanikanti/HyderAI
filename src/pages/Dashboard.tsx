@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Settings, Plus, Droplet, History, Clock, X, CloudSun } from 'lucide-react';
+import { Droplet, History, Clock, X, CloudSun } from 'lucide-react';
 import { useHydrationStore } from '../lib/hydration-store';
 
 export default function Dashboard() {

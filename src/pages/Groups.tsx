@@ -24,14 +24,11 @@ export default function Groups() {
   }, [user]);
 
   const createGroup = async () => {
-    if (!newGroupName || !user) {
-      alert("Missing group name or you are not logged in.");
-      return;
-    }
+    if (!newGroupName || !user) return;
     setLoading(true);
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // THE FIX: Sending both 'name' and 'group_name' to ensure the database is happy
+    // FIXED: Sending 'group_name' to prevent the null constraint error
     const { data: group, error: gError } = await supabase
       .from('groups')
       .insert([{ 
@@ -45,22 +42,14 @@ export default function Groups() {
 
     if (gError) {
       alert(`Database Error: ${gError.message}`);
-      console.error("Supabase Error Details:", gError);
       setLoading(false);
       return;
     }
 
     if (group) {
-      const { error: mError } = await supabase
-        .from('group_members')
-        .insert([{ group_id: group.id, user_id: user.id }]);
-      
-      if (mError) {
-        alert(`Member Join Error: ${mError.message}`);
-      } else {
-        setNewGroupName('');
-        await fetchGroups();
-      }
+      await supabase.from('group_members').insert([{ group_id: group.id, user_id: user.id }]);
+      setNewGroupName('');
+      await fetchGroups();
     }
     setLoading(false);
   };
@@ -75,11 +64,7 @@ export default function Groups() {
       if (!error) {
         setJoinCode('');
         await fetchGroups();
-      } else {
-        alert("Already a member or joining error.");
       }
-    } else {
-      alert("Invalid Code");
     }
     setLoading(false);
   };
@@ -120,7 +105,6 @@ export default function Groups() {
       <div className="space-y-3">
         {groups.map(g => (
           <div key={g.id} className="bg-[#161F32] p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
-            {/* THE FIX: Renders group_name if it exists, otherwise name */}
             <span className="font-bold">{g.group_name || g.name}</span>
             <span className="text-xs font-mono font-bold text-indigo-400 px-2 py-1 bg-slate-900 rounded">{g.code}</span>
           </div>
