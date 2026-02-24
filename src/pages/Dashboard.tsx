@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Plus, Droplet, History, Clock, Flame, LogOut, X, CloudSun, User } from 'lucide-react';
 import { useHydrationStore } from '../lib/hydration-store';

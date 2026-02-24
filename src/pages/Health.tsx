@@ -1,4 +1,3 @@
-import React from 'react';
 import { HeartPulse, AlertTriangle, Brain, ZapOff, Activity } from 'lucide-react';
 import { useHydrationStore } from '../lib/hydration-store';
 

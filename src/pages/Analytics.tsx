@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Calendar as CalIcon, BarChart2, TrendingUp } from 'lucide-react';
 import { useHydrationStore } from '../lib/hydration-store';
 import { supabase } from '../lib/supabase';

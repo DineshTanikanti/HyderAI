@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Users, UserPlus, Trophy, Plus, ChevronLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useHydrationStore } from '../lib/hydration-store';
@@ -23,14 +23,14 @@ export default function Groups() {
   const fetchMyGroups = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
+    
+    // FIX: Removed unused 'error' variable to pass Vercel build
+    const { data } = await supabase
       .from('group_members')
       .select(`group_id, groups (name, code)`)
       .eq('user_id', user.id);
       
     if (data) {
-      // FIX: Added '(m: any)' and '?.' to bypass TypeScript strict checking 
-      // and safely extract the joined group data.
       setMyGroups(data.map((m: any) => ({ 
         id: m.group_id, 
         name: m.groups?.name || 'Unknown Group', 
@@ -63,16 +63,15 @@ export default function Groups() {
   // Handle WhatsApp-style Group Creation
   const handleCreateGroup = async () => {
     if (!groupName || !user) return;
-    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase(); // e.g. X7B9QA
+    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     
-    // Create the group
-    const { data: group, error } = await supabase
+    // FIX: Removed unused 'error' variable here as well
+    const { data: group } = await supabase
       .from('groups')
       .insert([{ name: groupName, code: randomCode, created_by: user.id }])
       .select().single();
       
     if (group) {
-      // Add the creator as the first member
       await supabase.from('group_members').insert([{ group_id: group.id, user_id: user.id }]);
       setGroupName('');
       setView('list');
@@ -107,12 +106,10 @@ export default function Groups() {
     setView('leaderboard');
     setLoading(true);
 
-    // Get all users in THIS group (added 'any' to fix TS)
     const { data: members } = await supabase.from('group_members').select('user_id').eq('group_id', groupId);
     if (!members) return;
     const memberIds = members.map((m: any) => m.user_id);
 
-    // Get profiles and logs
     const { data: profiles } = await supabase.from('profiles').select('id, full_name, daily_goal').in('id', memberIds);
     const today = new Date().toISOString().split('T')[0];
     const { data: logs } = await supabase.from('water_logs').select('user_id, amount').gte('created_at', today).in('user_id', memberIds);
