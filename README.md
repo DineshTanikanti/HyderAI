@@ -31,8 +31,8 @@ HydrAI is a high-performance Progressive Web App (PWA) designed to manage daily 
 * A [Supabase](https://supabase.com/) account
 * A [Vercel](https://vercel.com/) account (optional, for deployment)
 
-### 1. Clone the repository
 ```bash
+### 1. Clone the repository
 git clone [https://github.com/DineshTanikanti/HydrAI.git](https://github.com/DineshTanikanti/HydrAI.git)
 cd HydrAI
 2. Install dependencies
