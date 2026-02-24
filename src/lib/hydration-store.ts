@@ -33,16 +33,16 @@ export const useHydrationStore = create<HydrationState>((set, get) => ({
   weatherTemp: null,
 
   calculateGoal: (weight = 70, activity = 'Moderate', temp = null) => {
-    let base = weight * 35;
+    let base = weight * 35; 
     if (activity === 'High') base += 500;
     if (activity === 'Low') base -= 200;
-    if (temp && temp >= 35) base += 500;
+    if (temp && temp >= 35) base += 500; // AI Weather Adjustment for Tadipatri heat
     return Math.round(base);
   },
 
   fetchUserData: async () => {
     try {
-      // Get Weather for Tadipatri
+      // Fetch fresh weather data for Tadipatri
       const weatherRes = await fetch('https://api.open-meteo.com/v1/forecast?latitude=14.9131&longitude=78.0108&current_weather=true');
       const weatherData = await weatherRes.json();
       const temp = weatherData.current_weather.temperature;
@@ -53,12 +53,15 @@ export const useHydrationStore = create<HydrationState>((set, get) => ({
         const goal = profile?.daily_goal || get().calculateGoal(profile?.weight, profile?.activity_level, temp);
 
         const today = new Date().toISOString().split('T')[0];
-        const { data: todaysLogs } = await supabase
+        // Fetch fresh logs directly from the server
+        const { data: todaysLogs, error: logError } = await supabase
           .from('water_logs')
           .select('*')
           .eq('user_id', user.id)
           .gte('created_at', today)
           .order('created_at', { ascending: false });
+
+        if (logError) throw logError;
 
         const total = todaysLogs?.reduce((sum, log) => sum + log.amount, 0) || 0;
 
@@ -74,7 +77,7 @@ export const useHydrationStore = create<HydrationState>((set, get) => ({
         set({ loading: false });
       }
     } catch (error) {
-      console.error("Fetch error:", error);
+      console.error("Critical Sync Error:", error);
       set({ loading: false });
     }
   },
@@ -83,49 +86,48 @@ export const useHydrationStore = create<HydrationState>((set, get) => ({
     const { user, currentIntake } = get();
     if (!user) return;
 
+    // Safety Threshold: 5L Daily Limit
     if (currentIntake + amount > 5000) {
-      alert("Safety limit reached: 5L per day.");
+      alert("Hydration Safety: 5L daily limit reached.");
       return;
     }
 
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('water_logs')
-      .insert([{ user_id: user.id, amount }])
-      .select().single();
+      .insert([{ user_id: user.id, amount }]);
 
-    if (!error && data) {
-      set((state) => ({ 
-        currentIntake: state.currentIntake + amount, 
-        logs: [data, ...state.logs] 
-      }));
+    if (!error) {
+      // Force immediate re-fetch to ensure mobile/laptop parity
+      await get().fetchUserData();
     }
   },
 
   removeLog: async (id: string) => {
-    // 1. Delete from Cloud
-    const { error } = await supabase.from('water_logs').delete().eq('id', id);
+    // 1. Delete the record from the cloud database
+    const { error } = await supabase
+      .from('water_logs')
+      .delete()
+      .eq('id', id);
     
-    if (!error) {
-      // 2. Sync UI only on successful cloud deletion
-      const { logs } = get();
-      const logToRemove = logs.find(l => l.id === id);
-      if (logToRemove) {
-        set((state) => ({
-          logs: state.logs.filter(l => l.id !== id),
-          currentIntake: Math.max(0, state.currentIntake - logToRemove.amount)
-        }));
-      }
-    } else {
-      alert("Error: Data could not be deleted from the server.");
+    if (error) {
+      alert("Sync Error: Could not delete data from server.");
+      return;
     }
+
+    // 2. ULTIMATE FIX: Instead of filtering local state, 
+    // we force a complete re-fetch from the database.
+    // This guarantees that if it's gone in the cloud, it's gone on your screen.
+    await get().fetchUserData();
   },
 
   updateProfile: async (updates) => {
     const { user, weatherTemp } = get();
     if (!user) return;
     const newGoal = get().calculateGoal(updates.weight, updates.activity_level, weatherTemp);
-    await supabase.from('profiles').update({ ...updates, daily_goal: newGoal }).eq('id', user.id);
-    get().fetchUserData();
+    const { error } = await supabase.from('profiles').update({ ...updates, daily_goal: newGoal }).eq('id', user.id);
+    if (!error) {
+      await get().fetchUserData();
+    }
   },
 
   signOut: async () => {
