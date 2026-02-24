@@ -1,68 +1,54 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useHydrationStore } from './lib/hydration-store';
-import { supabase } from './lib/supabase';
-
-// Component/Page Imports
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import Health from './pages/Health';
+import Groups from './pages/Groups';
 import Analytics from './pages/Analytics';
 import Reminders from './pages/Reminders';
 import Onboarding from './pages/Onboarding';
-import Groups from './pages/Groups';
-import Health from './pages/Health';
+import { useHydrationStore } from './lib/hydration-store';
 
 function App() {
-  const { user, fetchUserData, loading } = useHydrationStore();
+  const { user, loading, fetchUserData } = useHydrationStore();
 
   useEffect(() => {
-    // Initial data fetch
+    // Initial fetch when app starts
     fetchUserData();
 
-    // Listen for Auth changes (Sign In / Sign Out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      console.log("Auth Event:", event);
-      fetchUserData();
-    });
-
-    return () => {
-      subscription.unsubscribe();
+    // REAL-TIME SYNC: This triggers every time you switch back to the app
+    // or unlock your phone while the tab is open.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUserData();
+      }
     };
-  }, []);
+
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchUserData]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0B1120] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400 font-medium">Initializing HydrAI...</p>
-        </div>
+        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <BrowserRouter>
+    <Router>
       <Routes>
-        {/* Onboarding Route: Only accessible if NOT logged in */}
-        <Route 
-          path="/onboarding" 
-          element={!user ? <Onboarding /> : <Navigate to="/" replace />} 
-        />
-        
-        {/* Protected Routes: Requires 'user' session */}
-        <Route element={user ? <Layout /> : <Navigate to="/onboarding" replace />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/reminders" element={<Reminders />} />
-          <Route path="/groups" element={<Groups />} />
-          <Route path="/health" element={<Health />} />
+        <Route path="/onboarding" element={!user ? <Onboarding /> : <Navigate to="/" />} />
+        <Route path="/" element={user ? <Layout /> : <Navigate to="/onboarding" />}>
+          <Route index element={<Dashboard />} />
+          <Route path="health" element={<Health />} />
+          <Route path="groups" element={<Groups />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="reminders" element={<Reminders />} />
         </Route>
-
-        {/* Catch-all: Redirect to home or onboarding */}
-        <Route path="*" element={<Navigate to={user ? "/" : "/onboarding"} replace />} />
       </Routes>
-    </BrowserRouter>
+    </Router>
   );
 }
 
