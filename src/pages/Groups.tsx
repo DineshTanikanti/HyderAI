@@ -31,14 +31,18 @@ export default function Groups() {
     setLoading(true);
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-    // Try to create the group
+    // THE FIX: Sending both 'name' and 'group_name' to ensure the database is happy
     const { data: group, error: gError } = await supabase
       .from('groups')
-      .insert([{ name: newGroupName, code, created_by: user.id }])
+      .insert([{ 
+        name: newGroupName, 
+        group_name: newGroupName, 
+        code: code, 
+        created_by: user.id 
+      }])
       .select()
       .single();
 
-    // IF THERE IS AN ERROR, SHOW EXACT MESSAGE
     if (gError) {
       alert(`Database Error: ${gError.message}`);
       console.error("Supabase Error Details:", gError);
@@ -46,7 +50,6 @@ export default function Groups() {
       return;
     }
 
-    // If group creation succeeds, add user as a member
     if (group) {
       const { error: mError } = await supabase
         .from('group_members')
@@ -117,7 +120,8 @@ export default function Groups() {
       <div className="space-y-3">
         {groups.map(g => (
           <div key={g.id} className="bg-[#161F32] p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
-            <span className="font-bold">{g.name}</span>
+            {/* THE FIX: Renders group_name if it exists, otherwise name */}
+            <span className="font-bold">{g.group_name || g.name}</span>
             <span className="text-xs font-mono font-bold text-indigo-400 px-2 py-1 bg-slate-900 rounded">{g.code}</span>
           </div>
         ))}
